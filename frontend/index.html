@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Python Face Reco GUI</title>
+    
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="page-body">
+
+    <div class="card">
+        <h1 class="card-title">Algorithm Processor</h1>
+
+        <form id="upload-form" class="upload-form">
+            <div>
+                <label for="image-file" class="form-label">Select Image:</label>
+                <input type="file" id="image-file" class="file-input" accept="image/*" />
+            </div>
+
+            <button type="submit" class="submit-button" id="processButton">
+                Process Image
+            </button>
+        </form>
+
+        <div id="results-section" class="results-section">
+            <h2 class="results-title">Processing Results:</h2>
+            
+            <div id="loader" class="hidden">
+                <div class="spinner"></div>
+            </div>
+            
+            <pre id="results-output" class="results-output">Awaiting processing...</pre>
+        </div>
+    </div>
+
+    <script src="app.js" defer></script>
+</body>
+</html>
