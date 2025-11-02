@@ -15,8 +15,12 @@
         <form id="upload-form" class="upload-form">
             <div>
                 <label for="image-file" class="form-label">Select Image:</label>
-                <input type="file" id="image-file" class="file-input" accept="image/*" />
+                <input type="file" id="image-file" class="file-input" accept="image/*, .pgm" />
             </div>
+
+            <img id="image-preview" 
+                alt="Image preview" 
+                style="display: none; width: 100%; max-width: 200px; margin: 1rem auto; border-radius: 0.375rem;">
 
             <button type="submit" class="submit-button" id="processButton">
                 Process Image
@@ -25,6 +29,10 @@
 
         <div id="results-section" class="results-section">
             <h2 class="results-title">Processing Results:</h2>
+            
+            <img id="result-image" 
+                alt="Matching face result" 
+                style="display: none; width: 100%; max-width: 200px; margin: 1rem auto; border-radius: 0.375rem;">
             
             <div id="loader" class="hidden">
                 <div class="spinner"></div>

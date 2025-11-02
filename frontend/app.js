@@ -1,30 +1,29 @@
 // Wait for the DOM to be fully loaded before running the script
 document.addEventListener("DOMContentLoaded", () => {
-
-    // --- 1. Get elements using the CORRECT IDs from your HTML ---
     const uploadForm = document.getElementById('upload-form');
-    const imageInput = document.getElementById('image-file'); // Corrected ID
+    const imageInput = document.getElementById('image-file');
     const processButton = document.getElementById('processButton');
-    const loader = document.getElementById('loader'); // Corrected ID
-    const resultsSection = document.getElementById('results-section'); // Corrected ID
-    const resultsOutput = document.getElementById('results-output'); // Corrected ID
+    const loader = document.getElementById('loader');
+    const resultsSection = document.getElementById('results-section');
+    const resultsOutput = document.getElementById('results-output');
+    const imagePreview = document.getElementById('image-preview');
 
-    // --- 2. Listen for the FORM to be submitted ---
-    // This is better than a button click, as it also works if the user hits "Enter"
+    imageInput.value = null; // Clears the file input field
+    
+    imagePreview.style.display = 'none';
+    imagePreview.src = '';
+    
     uploadForm.addEventListener('submit', async (event) => {
-        // Stop the form from reloading the page
         event.preventDefault(); 
 
         const file = imageInput.files[0];
 
-        // Check if a file was selected
         if (!file) {
             resultsOutput.textContent = "Please select an image file first.";
-            resultsSection.style.display = 'block'; // Use style, not class (or use .classList.remove('hidden'))
+            resultsSection.style.display = 'block';
             return;
         }
 
-        // --- 3. Start the processing ---
         setLoading(true);
 
         const formData = new FormData();
@@ -38,44 +37,81 @@ document.addEventListener("DOMContentLoaded", () => {
                 body: formData,
             });
 
-            const data = await response.json();
+            const data = await response.json(); // data = { "matched_img_index": 123, "image_b64": "..." }
 
             if (response.ok) {
-                // Success! Show the results
-                resultsOutput.textContent = JSON.stringify(data, null, 2); // Pretty-print JSON
+                const resultImage = document.getElementById('result-image');
+                const imageSrc = "data:image/png;base64," + data.image_b64;
+                resultImage.src = imageSrc;
+                resultImage.style.display = 'block';
+
+                const index = data.matched_img_index;
+                const outputText = `Nearest index in training set: ${index}`
+
+                resultsOutput.textContent = outputText;
+            
             } else {
-                // Error from the server
+                document.getElementById('result-image').style.display = 'none';
                 throw new Error(data.error || 'Unknown server error');
             }
 
         } catch (error) {
-            // Network error
             console.error('Error:', error);
             resultsOutput.textContent = `Error connecting to backend:\n${error.message}\n\nIs the Python server running?`;
         } finally {
-            // --- 4. Stop loading and show results ---
             setLoading(false);
-            resultsSection.classList.remove('hidden'); // Show the results section
+            resultsSection.classList.remove('hidden');
         }
     });
 
-    // --- 5. Helper function to show/hide loading state ---
+    imageInput.addEventListener('change', async () => {
+        const file = imageInput.files[0];
+        const imagePreview = document.getElementById('image-preview');
+
+        if (file) {
+            const formData = new FormData();
+            formData.append('image', file);
+            
+            try {
+                const response = await fetch('http://localhost:5000/preview', {
+                    method: 'POST',
+                    body: formData,
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    const imageSrc = "data:image/png;base64," + data.image_b64;
+                    imagePreview.src = imageSrc;
+                    imagePreview.style.display = 'block';
+                } else {
+                    throw new Error(data.error);
+                }
+
+            } catch (error) {
+                console.error("Preview failed:", error);
+                imagePreview.src = '';
+                imagePreview.style.display = 'none';
+            }
+
+        } else {
+            imagePreview.src = '';
+            imagePreview.style.display = 'none';
+        }
+    });
+
     function setLoading(isLoading) {
         if (isLoading) {
-            // Disable button and change text
             processButton.disabled = true;
             processButton.textContent = 'Processing...';
             
-            // Show the spinner and hide old results
             loader.classList.remove('hidden');
             resultsSection.classList.add('hidden'); 
-            resultsOutput.textContent = ''; // Clear old results
+            resultsOutput.textContent = '';
         } else {
-            // Re-enable button and reset text
             processButton.disabled = false;
             processButton.textContent = 'Process Image';
             
-            // Hide the spinner
             loader.classList.add('hidden');
         }
     }

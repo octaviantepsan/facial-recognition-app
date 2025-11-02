@@ -1,6 +1,7 @@
 import numpy as np
 import cv2
 import os
+import base64
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 
@@ -10,20 +11,7 @@ app = Flask(__name__)
 CORS(app)
 
 def run_face_recognition_algorithm(image_as_array, normType='2'):
-    if normType == 'cos':
-        distances = np.array([calcNorm(train_images[i], image_as_array, normType) for i in range(len(train_images))])
-    else:
-        if normType == '1':
-            ord = 1
-        elif normType == 'inf':
-            ord = np.inf
-        elif normType == '2':
-            ord = 2
-        else:
-            print(f"Warning: Unknown norm type '{normType}', defaulting to Euclidean (L2)")
-            ord = 2
-        
-        distances = np.linalg.norm(train_images - image_as_array, ord=ord, axis=1)
+    distances = calcDist(image_as_array, normType)
     
     nearest_idx = int(np.argmin(distances))
     
@@ -31,11 +19,9 @@ def run_face_recognition_algorithm(image_as_array, normType='2'):
     print(image_as_array)
     print("---------------------")
     print(f"Processing an image with shape: {image_as_array.shape}")
-    print("endpoint works")
-    
     print(f"Nearest index in training set: {nearest_idx}")
     
-    return {"nearest_idx": nearest_idx}
+    return nearest_idx
 
 def load_images_and_paths():
     global train_images, test_images
@@ -50,10 +36,11 @@ def load_images_and_paths():
         test_images: List of testing images.
     """
     
-    base_path = r"C:\Octavian\github\facial-recognition\facial-recognition-app\assets\attfaces"
+    base_path_laptop = r"C:\Octavian\github\facial-recognition\facial-recognition-app\assets\attfaces"
+    base_path_pc = r"D:\OCTAVIAN\github\facial-recognition-app\assets\attfaces"
 
-    for class_dir in os.listdir(base_path):
-        class_path = os.path.join(base_path, class_dir)
+    for class_dir in os.listdir(base_path_pc):
+        class_path = os.path.join(base_path_pc, class_dir)
         
         if not os.path.isdir(class_path):
             continue
@@ -83,27 +70,49 @@ def load_images_and_paths():
     train_images = np.array(train_images)
     test_images = np.array(test_images)
 
+    print("------------------------------")
     print(f"train_images shape: {train_images.shape}, test_images shape: {test_images.shape}")
+    print("------------------------------")
 
-
-def calcNorm(train_sample, test_sample, normType='2'):
-    """Calculate distance between two samples using specified norm.
-    
-    Args:
-        train_sample: Single training image (flattened)
-        test_sample: Single test image (flattened)
+def calcDist(test_sample, normType='2'):
+    """
         normType: Type of norm ('1'=Manhattan, '2'=Euclidean, 'inf'=Chebyshev, 'cos'=Cosine)
     """
+    
+    if normType == 'cos':
+        dot_products = np.dot(train_images, test_sample)
+    
+        train_norms = np.linalg.norm(train_images, axis=1)
+        test_norm = np.linalg.norm(test_sample)
+        
+        epsilon = 1e-10
+        cosine_similarity = dot_products / ((train_norms * test_norm) + epsilon)
+        
+        return 1 - cosine_similarity
+    
     if normType == '1':
-        return np.linalg.norm(train_sample - test_sample, ord=1)
-    elif normType == '2':
-        return np.linalg.norm(train_sample - test_sample, ord=2)
+        ord = 1
     elif normType == 'inf':
-        return np.linalg.norm(train_sample - test_sample, ord=np.inf)
-    elif normType == 'cos':
-        return 1 - np.dot(train_sample, test_sample) / (np.linalg.norm(train_sample) * np.linalg.norm(test_sample))
-    else:
-        raise ValueError(f"Unknown norm type: {normType}")
+        ord = np.inf
+    elif normType == '2':
+        ord = 2
+        
+    distances = np.linalg.norm(train_images - test_sample, ord=ord, axis=1)
+    
+    return distances
+
+def prepareImgToSend(matched_img_index):
+    matched_img = train_images[matched_img_index]
+    matched_img_2d = matched_img.reshape(112, 92)
+    matched_image_uint8 = matched_img_2d.astype(np.uint8)
+    
+    # encode the 2D array as a PNG in memory
+    is_success, buffer = cv2.imencode(".png", matched_image_uint8)
+    
+    # convert that in-memory PNG to a Base64 text string
+    b64_string = base64.b64encode(buffer).decode("utf-8")
+    
+    return b64_string
 
 train_images = []
 test_images = []
@@ -119,7 +128,6 @@ def handle_image_processing():
     to the /process_image URL.
     """
     if "image" not in request.files:
-        # If the user didn't send an 'image' file, return an error
         return jsonify({"error": "No image file provided"}), 400
 
     file = request.files["image"]
@@ -133,14 +141,18 @@ def handle_image_processing():
         
         image_array_uint8 = cv2.imdecode(nparr, cv2.IMREAD_GRAYSCALE)
         
-        # Check if image was decoded successfully
         if image_array_uint8 is None:
             return jsonify({"error": "Failed to decode image. Is it a valid image file?"}), 400
 
-        image_array_float = image_array_uint8.astype(np.float32)
-        results = run_face_recognition_algorithm(image_array_float)
+        image_array_float = image_array_uint8.flatten().astype(np.float32)
+        matched_img_index = run_face_recognition_algorithm(image_array_float)
         
-        return jsonify(results)
+        img_as_string = prepareImgToSend(matched_img_index)
+        
+        return jsonify({
+            "matched_img_index": matched_img_index,
+            "image_b64": img_as_string,
+        })
 
     except Exception as e:
         print(f"An error occurred: {e}")
@@ -149,6 +161,42 @@ def handle_image_processing():
     except Exception as e:
         print(f"An error occurred: {e}")
         return jsonify({"error": "Failed to process image", "message": str(e)}), 500
+
+TARGET_SHAPE_2D = (112, 92) 
+
+@app.route('/preview', methods=['POST'])
+def preview_image():
+    if 'image' not in request.files:
+        return jsonify({"error": "No image file provided"}), 400
+
+    file = request.files['image']
+    
+    try:
+        # Read the .pgm file data
+        image_data = file.read()
+        nparr = np.frombuffer(image_data, np.uint8)
+        image_array_uint8 = cv2.imdecode(nparr, cv2.IMREAD_GRAYSCALE)
+
+        if image_array_uint8 is None:
+            return jsonify({"error": "Failed to decode PGM image"}), 400
+
+        # --- This is just for preview, so we send it back as PNG ---
+        
+        # Resize it so the preview looks right
+        image_resized = cv2.resize(image_array_uint8, (TARGET_SHAPE_2D[1], TARGET_SHAPE_2D[0]))
+
+        # Encode the resized 2D array as a PNG in memory
+        is_success, buffer = cv2.imencode(".png", image_resized)
+        
+        # Convert that in-memory PNG to a Base64 text string
+        b64_string = base64.b64encode(buffer).decode("utf-8")
+
+        # Send the PNG string back to the frontend
+        return jsonify({"image_b64": b64_string})
+
+    except Exception as e:
+        print(f"Preview error: {e}")
+        return jsonify({"error": "An internal server error occurred"}), 500
 
 # --- Run the Server ---
 if __name__ == "__main__":
