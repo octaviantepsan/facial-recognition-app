@@ -2,6 +2,7 @@ import numpy as np
 import cv2
 import os
 import base64
+import time
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from scipy import stats
@@ -15,12 +16,6 @@ def run_nn_algorithm(image_as_array, normType='2'):
     distances = calcDist(image_as_array, normType)
     
     nearest_idx = int(np.argmin(distances))
-    
-    print("---------------------")
-    print(image_as_array)
-    print("---------------------")
-    print(f"Processing an image with shape: {image_as_array.shape}")
-    print(f"Nearest index in training set: {nearest_idx}")
     
     return nearest_idx
 
@@ -39,10 +34,6 @@ def run_knn_algorithm(image_as_array, k=1, normType='2'):
     most_common_label = stats.mode(k_person_labels)[0]
     
     single_nearest_idx = int(k_nearest_indices[0])
-    
-    print("-----------")
-    print("Person label is: " + str(most_common_label))
-    print("-----------")
     
     return {
         "person_label": int(most_common_label),
@@ -98,10 +89,6 @@ def load_images_and_paths():
                 
     train_images = np.array(train_images_list)
     test_images = np.array(test_images_list)
-
-    print("------------------------------")
-    print(f"train_images shape: {train_images.shape}, test_images shape: {test_images.shape}")
-    print("------------------------------")
 
 def calcDist(test_sample, normType='2'):
     """
@@ -251,6 +238,74 @@ def preview_image():
     except Exception as e:
         print(f"Preview error: {e}")
         return jsonify({"error": "An internal server error occurred"}), 500
+
+@app.route("/run_statistics", methods=["POST"])
+def run_statistics():
+    """
+    Runs a full benchmark on all 80 test images against all
+    algorithm combinations and returns the accuracy and time.
+    """
+    print("--- Starting Statistics Benchmark ---")
+    
+    # Define all combinations to test
+    # (NN is just K-NN with k=1, but we'll test both 'nn' and 'knn' logic)
+    algorithms = ["nn", "knn"]
+    k_values = [1, 3, 5, 7]
+    norm_types = ["cos", "2", "1", "inf"]
+    
+    benchmark_results = []
+    
+    # Loop over every combination
+    for algo in algorithms:
+        for norm in norm_types:
+            # For NN, we only run k=1
+            if algo == 'nn':
+                test_k_values = [1]
+            else: # For K-NN, we run all k_values
+                test_k_values = k_values
+                
+            for k in test_k_values:
+                # Skip redundant NN(k=1) test if K-NN(k=1) is already done
+                if algo == 'nn' and k == 1 and any(r['name'] == f'K-NN (k=1) - {norm}' for r in benchmark_results):
+                    continue
+
+                total_correct = 0
+                
+                # --- Measure Time ---
+                start_time = time.perf_counter()
+                
+                # Run this combo against all 80 test images
+                for i, test_img in enumerate(test_images):
+                    true_label = (i // 2) + 1
+                    
+                    # We call the *logic* function directly
+                    results = get_recognition_results(test_img, algo, k, norm)
+                    
+                    if results["person_label"] == true_label:
+                        total_correct += 1
+                        
+                end_time = time.perf_counter()
+                # --- End Time ---
+                
+                total_time_ms = (end_time - start_time) * 1000 # Convert to milliseconds
+                accuracy = (total_correct / len(test_images)) * 100
+                
+                # Create a readable name
+                if algo == 'nn':
+                    name = f"NN - {norm}"
+                else:
+                    name = f"K-NN (k={k}) - {norm}"
+                    
+                benchmark_results.append({
+                    "name": name,
+                    "accuracy": accuracy,
+                    "time_ms": total_time_ms
+                })
+                
+                print(f"Test: {name} | Accuracy: {accuracy:.2f}% | Time: {total_time_ms:.2f} ms")
+
+    print("--- Statistics Benchmark Finished ---")
+    return jsonify(benchmark_results)
 
 # --- Run the Server ---
 if __name__ == "__main__":

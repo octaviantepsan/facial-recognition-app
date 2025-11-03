@@ -10,21 +10,46 @@ body, html {
     background-color: #111827; /* gray-900 */
     color: #ffffff; /* text-white */
     display: flex;
-    align-items: center;
+    align-items: flex-start; /* Align to top */
     justify-content: center;
     min-height: 100vh;
-    padding: 20px;
+    padding: 2rem; /* 20px -> 2rem for consistency */
+    gap: 2rem; /* Space between cards */
 }
 
-/* --- Main Card --- */
+/* --- NEW: Main Layout Container --- */
+.main-container {
+    display: flex;
+    flex-direction: row; /* Side-by-side */
+    flex-wrap: wrap; /* Allow wrapping on small screens */
+    justify-content: center;
+    gap: 2rem;
+    width: 100%;
+}
+
+/* --- Main Card (Modified) --- */
 .card {
     background-color: #1f2937; /* gray-800 */
     padding: 2rem; /* p-8 */
     border-radius: 0.5rem; /* rounded-lg */
     box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04); /* shadow-xl */
+    
+    /* Remove old width properties */
+}
+
+/* --- NEW: Card Sizing --- */
+.main-card {
     width: 100%;
     max-width: 32rem; /* max-w-lg */
+    flex-shrink: 0; /* Don't shrink */
 }
+
+.stats-card {
+    width: 100%;
+    max-width: 48rem; /* max-w-3xl (wider for charts) */
+    flex-grow: 1; /* Allow to grow */
+}
+
 
 .card-title {
     font-size: 1.875rem; /* text-3xl */
@@ -90,7 +115,7 @@ body, html {
 
 .submit-button:hover {
     background-color: #4338ca; /* hover:bg-indigo-700 */
-    transform: scale(1.02); /* A bit more subtle than 1.05 */
+    transform: scale(1.02);
 }
 
 .submit-button:focus {
@@ -98,7 +123,7 @@ body, html {
     outline-offset: 2px;
 }
 
-/* --- NEW: Algorithm Settings --- */
+/* --- Algorithm Settings --- */
 .settings-grid {
     display: grid;
     /* Create responsive columns: 3 on desktop, 1 on mobile */
@@ -124,30 +149,27 @@ body, html {
     border-radius: 0.375rem; /* rounded-md */
     cursor: pointer;
     
-    /* Remove default OS styling */
     appearance: none;
     -webkit-appearance: none;
     
-    /* Custom dropdown arrow */
     background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 20 20"><path stroke="%239ca3af" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M6 8l4 4 4-4"/></svg>');
     background-repeat: no-repeat;
     background-position: right 0.5rem center;
     background-size: 1.25em 1.25em;
     
-    /* Add padding to right to not overlap arrow */
     padding-right: 2.5rem;
 }
 
 .select-input:focus {
-    outline: 2px solid #6366f1; /* focus:ring-2 focus:ring-indigo-500 */
+    outline: 2px solid #6366f1;
     outline-offset: 2px;
-    border-color: #4f46e5; /* indigo-600 */
+    border-color: #4f46e5;
 }
 
 .select-input:disabled {
     opacity: 0.5;
     cursor: not-allowed;
-    background-color: #4b5563; /* gray-600 */
+    background-color: #4b5563;
 }
 
 
@@ -172,6 +194,67 @@ body, html {
     white-space: pre-wrap;
     word-break: break-words;
     font-family: monospace;
+}
+
+/* --- NEW: Statistics Section --- */
+.statistics-container {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.stats-button {
+    background-color: #059669; /* A different color (e.g., green-600) */
+}
+
+.stats-button:hover {
+    background-color: #047857; /* green-700 */
+}
+
+.chart-container {
+    margin-top: 1rem;
+    padding: 1rem;
+    background-color: #374151; /* gray-700 */
+    border-radius: 0.5rem;
+}
+
+.chart-title {
+    font-size: 1.125rem; /* text-lg */
+    font-weight: 500;
+    margin-top: 0;
+    margin-bottom: 1rem;
+    text-align: center;
+}
+
+/* --- Additions for Stats Panel --- */
+
+.stats-button-group {
+    display: grid;
+    grid-template-columns: 1fr 1fr; /* Two columns */
+    gap: 1rem;
+}
+
+.stats-button-clear {
+    width: 100%;
+    background-color: #b91c1c; /* Red-700 */
+    color: #ffffff; /* text-white */
+    font-weight: 700; /* font-bold */
+    padding: 0.75rem 1rem; /* py-3 px-4 */
+    border: none;
+    border-radius: 0.5rem; /* rounded-lg */
+    cursor: pointer;
+    font-size: 1rem;
+    transition: all 0.3s ease-in-out;
+}
+
+.stats-button-clear:hover {
+    background-color: #991b1b; /* Red-800 */
+    transform: scale(1.02);
+}
+
+.stats-button-clear:focus {
+    outline: 2px solid #f87171; /* Red-400 */
+    outline-offset: 2px;
 }
 
 /* --- Utilities (from Tailwind) --- */

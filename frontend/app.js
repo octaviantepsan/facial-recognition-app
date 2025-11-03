@@ -1,4 +1,7 @@
+// Wait for the DOM to be fully loaded before running the script
 document.addEventListener("DOMContentLoaded", () => {
+    
+    // --- 1. Get ALL elements ---
     const uploadForm = document.getElementById('upload-form');
     const imageInput = document.getElementById('image-file');
     const imagePreview = document.getElementById('image-preview');
@@ -15,33 +18,45 @@ document.addEventListener("DOMContentLoaded", () => {
     const resultsOutput = document.getElementById('results-output');
     const resultImage = document.getElementById('result-image');
 
+    // --- NEW: Statistics Elements ---
+    const runStatsButton = document.getElementById('run-stats-button');
+    const statsLoader = document.getElementById('stats-loader');
+    const statsSection = document.getElementById('statistics-section');
+    const downloadChartsButton = document.getElementById('download-charts-button');
+    const accuracyChartCanvas = document.getElementById('accuracy-chart');
+    const timeChartCanvas = document.getElementById('time-chart');
+
+    // --- NEW: Get the new cache buttons ---
+    const clearStatsButton = document.getElementById('clear-stats-button');
+    const cacheMessage = document.getElementById('cache-message');
+
+    // To hold the chart instances
+    let accuracyChart = null;
+    let timeChart = null;
+
+
+    // --- 2. Force-Reset on Load (Unchanged) ---
     imageInput.value = null;
     imagePreview.style.display = 'none';
     imagePreview.src = '';
     resultImage.style.display = 'none';
     resultImage.src = '';
     
-    kSelect.disabled = true;
-    
+    // --- 3. UI Logic for Dropdowns (Unchanged) ---
+    kSelect.disabled = true; // Disable 'k' select by default
     algorithmSelect.addEventListener('change', () => {
-        if (algorithmSelect.value === 'nn') {
-            kSelect.value = "1"
-            kSelect.disabled = true;
-        } else {
-            kSelect.disabled = false;
-        }
+        kSelect.disabled = (algorithmSelect.value === 'nn');
     });
 
+    // --- 4. Main Form Submit Logic (Unchanged) ---
     uploadForm.addEventListener('submit', async (event) => {
         event.preventDefault(); 
-
         const file = imageInput.files[0];
         if (!file) {
             resultsOutput.textContent = "Please select an image file first.";
-            resultsSection.style.display = 'block';
+            resultsSection.classList.remove('hidden');
             return;
         }
-
         setLoading(true);
 
         const formData = new FormData();
@@ -51,34 +66,20 @@ document.addEventListener("DOMContentLoaded", () => {
         formData.append('normType', normSelect.value);
 
         const backendUrl = 'http://localhost:5000/process_image';
-
         try {
-            const response = await fetch(backendUrl, {
-                method: 'POST',
-                body: formData,
-            });
-
+            const response = await fetch(backendUrl, { method: 'POST', body: formData });
             const data = await response.json();
-
             if (response.ok) {
                 resultImage.src = "data:image/png;base64," + data.image_b64;
                 resultImage.style.display = 'block';
-
-                const algo = data.algorithm;
-                const person = data.person_label;
-                const index = data.nearest_idx;
-
-                const outputText = `Algorithm Used: ${algo}
-Voted Person: ${person}
-Nearest Image Index: ${index}`;
-
+                const outputText = `Algorithm Used: ${data.algorithm}
+Voted Person: ${data.person_label}
+Nearest Image Index: ${data.nearest_idx}`;
                 resultsOutput.textContent = outputText;
-            
             } else {
                 resultImage.style.display = 'none';
                 throw new Error(data.error || 'Unknown server error');
             }
-
         } catch (error) {
             console.error('Error:', error);
             resultsOutput.textContent = `Error connecting to backend:\n${error.message}\n\nIs the Python server running?`;
@@ -88,38 +89,32 @@ Nearest Image Index: ${index}`;
         }
     });
 
+    // --- 5. Preview Image Logic (Unchanged) ---
     imageInput.addEventListener('change', async () => {
         const file = imageInput.files[0];
-        
-        if (file) {
-            const formData = new FormData();
-            formData.append('image', file);
-            
-            try {
-                const response = await fetch('http://localhost:5000/preview', {
-                    method: 'POST',
-                    body: formData,
-                });
-                const data = await response.json();
-                
-                if (response.ok) {
-                    const imageSrc = "data:image/png;base64," + data.image_b64;
-                    imagePreview.src = imageSrc;
-                    imagePreview.style.display = 'block';
-                } else {
-                    throw new Error(data.error);
-                }
-            } catch (error) {
-                console.error("Preview failed:", error);
-                imagePreview.src = '';
-                imagePreview.style.display = 'none';
-            }
-        } else {
+        if (!file) {
+            imagePreview.src = '';
+            imagePreview.style.display = 'none';
+            return;
+        }
+        const formData = new FormData();
+        formData.append('image', file);
+        try {
+            const response = await fetch('http://localhost:5000/preview', { method: 'POST', body: formData });
+            const data = await response.json();
+            if (response.ok) {
+                const imageSrc = "data:image/png;base64," + data.image_b64;
+                imagePreview.src = imageSrc;
+                imagePreview.style.display = 'block';
+            } else { throw new Error(data.error); }
+        } catch (error) {
+            console.error("Preview failed:", error);
             imagePreview.src = '';
             imagePreview.style.display = 'none';
         }
     });
 
+    // --- 6. Loading Function (Unchanged) ---
     function setLoading(isLoading) {
         if (isLoading) {
             processButton.disabled = true;
@@ -133,4 +128,137 @@ Nearest Image Index: ${index}`;
             loader.classList.add('hidden');
         }
     }
+
+    // --- 7. MODIFIED: STATISTICS LOGIC ---
+    runStatsButton.addEventListener('click', async () => {
+        //resultsSection.classList.add('hidden');
+        
+        const cachedData = localStorage.getItem('benchmarkData');
+
+        if (cachedData) {
+            console.log("Loading benchmark data from cache.");
+            cacheMessage.textContent = "Displaying cached results. Click 'Clear Cache' to re-run.";
+            displayBenchmarkData(JSON.parse(cachedData));
+            return; 
+        }
+
+        console.log("Fetching new benchmark data from server.");
+        cacheMessage.textContent = ""; 
+        statsLoader.classList.remove('hidden');
+        statsSection.classList.add('hidden');
+        runStatsButton.disabled = true;
+        clearStatsButton.disabled = true;
+
+        try {
+            const response = await fetch('http://localhost:5000/run_statistics', { method: 'POST' });
+            const data = await response.json(); 
+
+            if (response.ok) {
+                localStorage.setItem('benchmarkData', JSON.stringify(data));
+                displayBenchmarkData(data);
+            } else {
+                throw new Error(data.error || 'Failed to run stats');
+            }
+        } catch (error) {
+            console.error("Statistics failed:", error);
+            resultsOutput.textContent = `Error running statistics:\n${error.message}`;
+            resultsSection.classList.remove('hidden');
+        } finally {
+            statsLoader.classList.add('hidden');
+            runStatsButton.disabled = false;
+            clearStatsButton.disabled = false;
+        }
+    });
+
+    /**
+     * NEW Helper function to display charts from data
+     */
+    function displayBenchmarkData(data) {
+        // Clear old charts if they exist
+        if (accuracyChart) accuracyChart.destroy();
+        if (timeChart) timeChart.destroy();
+        
+        // Render new charts
+        accuracyChart = renderChart(accuracyChartCanvas, data, 'accuracy', 'Accuracy (%)', 'rgba(75, 192, 192, 0.6)');
+        timeChart = renderChart(timeChartCanvas, data, 'time_ms', 'Time (ms)', 'rgba(255, 99, 132, 0.6)');
+        
+        // Show the results section
+        statsSection.classList.remove('hidden');
+    }
+
+    /**
+     * Helper function to render a chart (Unchanged)
+     */
+    function renderChart(canvas, data, dataKey, label, color) {
+        const labels = data.map(d => d.name);
+        const values = data.map(d => d[dataKey]);
+
+        return new Chart(canvas, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: label,
+                    data: values,
+                    backgroundColor: color,
+                    borderColor: color.replace('0.6', '1'),
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: { color: '#d1d5db' },
+                        grid: { color: '#374151' } 
+                    },
+                    x: {
+                        ticks: { color: '#d1d5db' },
+                        grid: { color: '#374151' } 
+                    }
+                },
+                plugins: {
+                    legend: {
+                        labels: { color: '#d1d5db' }
+                    }
+                }
+            }
+        });
+    }
+
+    /**
+     * Helper function to download a chart (Corrected)
+     */
+    function downloadChart(chart, filename) {
+        if (!chart) return;
+        const a = document.createElement('a');
+        a.href = chart.canvas.toDataURL('image/png'); // <-- Fixed to use .canvas
+        a.download = filename;
+        a.click();
+    }
+
+    // --- 8. Download Charts Logic (Unchanged) ---
+    downloadChartsButton.addEventListener('click', () => {
+        downloadChart(accuracyChart, 'accuracy_chart.png');
+        downloadChart(timeChart, 'time_chart.png');
+    });
+
+    // --- 9. NEW: CLEAR CACHE LOGIC ---
+    clearStatsButton.addEventListener('click', () => {
+        // Clear the cache
+        localStorage.removeItem('benchmarkData');
+        
+        // Hide the stats section
+        statsSection.classList.add('hidden');
+        cacheMessage.textContent = "";
+
+        // Destroy the charts
+        if (accuracyChart) accuracyChart.destroy();
+        if (timeChart) timeChart.destroy();
+
+        // Show a confirmation message in the main log
+        resultsOutput.textContent = "Benchmark cache cleared. Click 'Show/Run Statistics' to re-calculate.";
+        resultsSection.classList.remove('hidden');
+    });
+
 });
