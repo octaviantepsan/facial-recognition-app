@@ -27,14 +27,12 @@ document.addEventListener("DOMContentLoaded", () => {
     const timeChartCanvas = document.getElementById('time-chart');
     const downloadCSVButton = document.getElementById('download-csv-button');
 
-    // Get the new cache buttons
     const clearStatsButton = document.getElementById('clear-stats-button');
     const cacheMessage = document.getElementById('cache-message');
 
-    // To hold the chart instances
     let accuracyChart = null;
     let timeChart = null;
-    let benchmarkData = null; // <-- ADD THIS to store data for CSV
+    let benchmarkData = null;
 
     imageInput.value = null;
     imagePreview.style.display = 'none';
@@ -221,7 +219,7 @@ Nearest Image Index: ${data.nearest_idx}`;
     }
 
     /*
-        NEW Helper function to display charts from data
+        Helper function to display charts from data
     */
     function displayBenchmarkData(data) {
         if (accuracyChart) accuracyChart.destroy();
@@ -235,16 +233,14 @@ Nearest Image Index: ${data.nearest_idx}`;
 
         statsSection.classList.remove('hidden');
 
-        downloadChartsButton.disabled = false; // (You might not have this, good to add)
-        downloadCSVButton.disabled = false; // <-- ENABLE THE BUTTON
+        downloadChartsButton.disabled = false;
+        downloadCSVButton.disabled = false;
     }
 
     /*
         Helper function to render a chart (Unchanged)
     */
     function renderChart(canvas, data, dataKey, label, color) {
-        
-        // --- NEW LOGIC TO ADD SPACING ---
         let processedLabels = [];
         let processedValues = [];
 
@@ -308,9 +304,9 @@ Nearest Image Index: ${data.nearest_idx}`;
         });
     }
 
-    /**
-     * Helper function to download a chart
-     */
+    /*
+        Helper function to download a chart
+    */
     function downloadChart(chart, filename) {
         if (!chart) return;
         const a = document.createElement('a');
@@ -327,7 +323,6 @@ Nearest Image Index: ${data.nearest_idx}`;
     clearStatsButton.addEventListener('click', () => {
         localStorage.removeItem('benchmarkData');
         
-        // --- ADD THIS ---
         benchmarkData = null;
 
         statsSection.classList.add('hidden');
@@ -336,36 +331,34 @@ Nearest Image Index: ${data.nearest_idx}`;
         if (accuracyChart) accuracyChart.destroy();
         if (timeChart) timeChart.destroy();
 
-        // --- ADD THIS ---
-        downloadCSVButton.disabled = true; // Disable CSV button
+        downloadCSVButton.disabled = true;
 
         resultsOutput.textContent = "Benchmark cache cleared. Click 'Show/Run Statistics' to re-calculate.";
         resultsSection.classList.remove('hidden');
     });
 
-    /**
-     * Helper function to convert benchmark data to CSV
-     */
+    /*
+        Helper function to convert benchmark data to CSV
+    */
     function generateCSV(data) {
         if (!data || data.length === 0) {
             console.error("No benchmark data to download.");
             return;
         }
 
-        // 1. Create headers
+        // Create headers
         const headers = ["TestName", "Accuracy(%)", "Time(ms)"];
         let csvContent = headers.join(",") + "\n";
 
-        // 2. Add each row
+        // Add each row
         data.forEach(row => {
-            // Escape commas in the name by wrapping in quotes
             const name = `"${row.name}"`;
             const accuracy = row.accuracy.toFixed(2);
             const time = row.time_ms.toFixed(2);
             csvContent += [name, accuracy, time].join(",") + "\n";
         });
 
-        // 3. Create a blob and trigger download
+        // Create a blob and trigger download
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
         const link = document.createElement("a");
         const url = URL.createObjectURL(blob);
@@ -378,7 +371,6 @@ Nearest Image Index: ${data.nearest_idx}`;
         document.body.removeChild(link);
     }
 
-    // Add the listener for the new button
     downloadCSVButton.addEventListener('click', () => {
         generateCSV(benchmarkData);
     });
