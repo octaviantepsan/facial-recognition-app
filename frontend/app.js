@@ -1,7 +1,7 @@
 // Wait for the DOM to be fully loaded before running the script
 document.addEventListener("DOMContentLoaded", () => {
     
-    // --- 1. Get ALL elements ---
+    // Get ALL elements
     const uploadForm = document.getElementById('upload-form');
     const imageInput = document.getElementById('image-file');
     const imagePreview = document.getElementById('image-preview');
@@ -18,37 +18,42 @@ document.addEventListener("DOMContentLoaded", () => {
     const resultsOutput = document.getElementById('results-output');
     const resultImage = document.getElementById('result-image');
 
-    // --- NEW: Statistics Elements ---
+    // Statistics Elements
     const runStatsButton = document.getElementById('run-stats-button');
     const statsLoader = document.getElementById('stats-loader');
     const statsSection = document.getElementById('statistics-section');
     const downloadChartsButton = document.getElementById('download-charts-button');
     const accuracyChartCanvas = document.getElementById('accuracy-chart');
     const timeChartCanvas = document.getElementById('time-chart');
+    const downloadCSVButton = document.getElementById('download-csv-button');
 
-    // --- NEW: Get the new cache buttons ---
+    // Get the new cache buttons
     const clearStatsButton = document.getElementById('clear-stats-button');
     const cacheMessage = document.getElementById('cache-message');
 
     // To hold the chart instances
     let accuracyChart = null;
     let timeChart = null;
+    let benchmarkData = null; // <-- ADD THIS to store data for CSV
 
-
-    // --- 2. Force-Reset on Load (Unchanged) ---
     imageInput.value = null;
     imagePreview.style.display = 'none';
     imagePreview.src = '';
     resultImage.style.display = 'none';
     resultImage.src = '';
     
-    // --- 3. UI Logic for Dropdowns (Unchanged) ---
-    kSelect.disabled = true; // Disable 'k' select by default
+    kSelect.disabled = true;
     algorithmSelect.addEventListener('change', () => {
-        kSelect.disabled = (algorithmSelect.value === 'nn');
+        kSelect.disabled = false
+
+        if (algorithmSelect.value === 'nn') {
+            kSelect.value = "1";
+            kSelect.disabled = true;
+
+            return;
+        }
     });
 
-    // --- 4. Main Form Submit Logic (Unchanged) ---
     uploadForm.addEventListener('submit', async (event) => {
         event.preventDefault(); 
         const file = imageInput.files[0];
@@ -89,7 +94,6 @@ Nearest Image Index: ${data.nearest_idx}`;
         }
     });
 
-    // --- 5. Preview Image Logic (Unchanged) ---
     imageInput.addEventListener('change', async () => {
         const file = imageInput.files[0];
         if (!file) {
@@ -114,7 +118,6 @@ Nearest Image Index: ${data.nearest_idx}`;
         }
     });
 
-    // --- 6. Loading Function (Unchanged) ---
     function setLoading(isLoading) {
         if (isLoading) {
             processButton.disabled = true;
@@ -129,16 +132,15 @@ Nearest Image Index: ${data.nearest_idx}`;
         }
     }
 
-    // --- 7. MODIFIED: STATISTICS LOGIC ---
-    runStatsButton.addEventListener('click', async () => {
-        //resultsSection.classList.add('hidden');
-        
+    runStatsButton.addEventListener('click', async () => { 
         const cachedData = localStorage.getItem('benchmarkData');
 
         if (cachedData) {
             console.log("Loading benchmark data from cache.");
             cacheMessage.textContent = "Displaying cached results. Click 'Clear Cache' to re-run.";
             displayBenchmarkData(JSON.parse(cachedData));
+            benchmarkData = JSON.parse(cachedData);
+            displayBenchmarkData(benchmarkData);
             return; 
         }
 
@@ -154,6 +156,7 @@ Nearest Image Index: ${data.nearest_idx}`;
             const data = await response.json(); 
 
             if (response.ok) {
+                benchmarkData = data;
                 localStorage.setItem('benchmarkData', JSON.stringify(data));
                 displayBenchmarkData(data);
             } else {
@@ -170,36 +173,115 @@ Nearest Image Index: ${data.nearest_idx}`;
         }
     });
 
-    /**
-     * NEW Helper function to display charts from data
-     */
+    /*
+        Helper function to calculate median
+    */
+    function median(arr) {
+        if (!arr.length) return 0;
+        const sorted = arr.slice().sort((a, b) => a - b);
+        const mid = Math.floor(sorted.length / 2);
+        if (sorted.length % 2 === 0) {
+            return (sorted[mid - 1] + sorted[mid]) / 2;
+        }
+        return sorted[mid];
+    }
+
+    /*
+        Helper function to aggregate data for the time chart
+    */
+    function calculateMedianTimeData(data) {
+        const normTimes = {
+            'cos': { times: [], name: 'Cosine' },
+            '2': { times: [], name: 'Euclidean (L2)' },
+            '1': { times: [], name: 'Manhattan (L1)' },
+            'inf': { times: [], name: 'Chebyshev (L-inf)' }
+        };
+
+        for (const item of data) {
+            if (item.name.endsWith(' - cos')) {
+                normTimes['cos'].times.push(item.time_ms);
+            } else if (item.name.endsWith(' - 2')) {
+                normTimes['2'].times.push(item.time_ms);
+            } else if (item.name.endsWith(' - 1')) {
+                normTimes['1'].times.push(item.time_ms);
+            } else if (item.name.endsWith(' - inf')) {
+                normTimes['inf'].times.push(item.time_ms);
+            }
+        }
+
+        const medianData = [];
+        for (const key in normTimes) {
+            medianData.push({
+                name: normTimes[key].name,
+                time_ms: median(normTimes[key].times)
+            });
+        }
+        
+        return medianData;
+    }
+
+    /*
+        NEW Helper function to display charts from data
+    */
     function displayBenchmarkData(data) {
-        // Clear old charts if they exist
         if (accuracyChart) accuracyChart.destroy();
         if (timeChart) timeChart.destroy();
         
-        // Render new charts
         accuracyChart = renderChart(accuracyChartCanvas, data, 'accuracy', 'Accuracy (%)', 'rgba(75, 192, 192, 0.6)');
-        timeChart = renderChart(timeChartCanvas, data, 'time_ms', 'Time (ms)', 'rgba(255, 99, 132, 0.6)');
         
-        // Show the results section
+        const medianTimeData = calculateMedianTimeData(data);
+
+        timeChart = renderChart(timeChartCanvas, medianTimeData, 'time_ms', 'Median Time (ms)', 'rgba(255, 99, 132, 0.6)');
+
         statsSection.classList.remove('hidden');
+
+        downloadChartsButton.disabled = false; // (You might not have this, good to add)
+        downloadCSVButton.disabled = false; // <-- ENABLE THE BUTTON
     }
 
-    /**
-     * Helper function to render a chart (Unchanged)
-     */
+    /*
+        Helper function to render a chart (Unchanged)
+    */
     function renderChart(canvas, data, dataKey, label, color) {
-        const labels = data.map(d => d.name);
-        const values = data.map(d => d[dataKey]);
+        
+        // --- NEW LOGIC TO ADD SPACING ---
+        let processedLabels = [];
+        let processedValues = [];
+
+        if (dataKey === 'accuracy') {
+            const nnGroupSize = 4;
+            const knnGroupSize = 5; // k=1, 3, 5, 7, 9
+            let currentGroupSize = nnGroupSize;
+            let itemsInCurrentGroup = 0;
+
+            for (let i = 0; i < data.length; i++) {
+                const item = data[i];
+                processedLabels.push(item.name);
+                processedValues.push(item[dataKey]);
+                itemsInCurrentGroup++;
+
+                const isLastItem = (i === data.length - 1);
+                
+                if (!isLastItem && itemsInCurrentGroup === currentGroupSize) {
+                    processedLabels.push('');
+                    processedValues.push(NaN);
+                    
+                    itemsInCurrentGroup = 0;
+                    currentGroupSize = knnGroupSize;
+                }
+            }
+        } else {
+            processedLabels = data.map(d => d.name);
+            processedValues = data.map(d => d[dataKey]);
+        }
 
         return new Chart(canvas, {
             type: 'bar',
             data: {
-                labels: labels,
+                labels: processedLabels,
                 datasets: [{
                     label: label,
-                    data: values,
+                    data: processedValues,
                     backgroundColor: color,
                     borderColor: color.replace('0.6', '1'),
                     borderWidth: 1
@@ -227,38 +309,77 @@ Nearest Image Index: ${data.nearest_idx}`;
     }
 
     /**
-     * Helper function to download a chart (Corrected)
+     * Helper function to download a chart
      */
     function downloadChart(chart, filename) {
         if (!chart) return;
         const a = document.createElement('a');
-        a.href = chart.canvas.toDataURL('image/png'); // <-- Fixed to use .canvas
+        a.href = chart.canvas.toDataURL('image/png');
         a.download = filename;
         a.click();
     }
 
-    // --- 8. Download Charts Logic (Unchanged) ---
     downloadChartsButton.addEventListener('click', () => {
         downloadChart(accuracyChart, 'accuracy_chart.png');
         downloadChart(timeChart, 'time_chart.png');
     });
 
-    // --- 9. NEW: CLEAR CACHE LOGIC ---
     clearStatsButton.addEventListener('click', () => {
-        // Clear the cache
         localStorage.removeItem('benchmarkData');
         
-        // Hide the stats section
+        // --- ADD THIS ---
+        benchmarkData = null;
+
         statsSection.classList.add('hidden');
         cacheMessage.textContent = "";
 
-        // Destroy the charts
         if (accuracyChart) accuracyChart.destroy();
         if (timeChart) timeChart.destroy();
 
-        // Show a confirmation message in the main log
+        // --- ADD THIS ---
+        downloadCSVButton.disabled = true; // Disable CSV button
+
         resultsOutput.textContent = "Benchmark cache cleared. Click 'Show/Run Statistics' to re-calculate.";
         resultsSection.classList.remove('hidden');
     });
 
+    /**
+     * Helper function to convert benchmark data to CSV
+     */
+    function generateCSV(data) {
+        if (!data || data.length === 0) {
+            console.error("No benchmark data to download.");
+            return;
+        }
+
+        // 1. Create headers
+        const headers = ["TestName", "Accuracy(%)", "Time(ms)"];
+        let csvContent = headers.join(",") + "\n";
+
+        // 2. Add each row
+        data.forEach(row => {
+            // Escape commas in the name by wrapping in quotes
+            const name = `"${row.name}"`;
+            const accuracy = row.accuracy.toFixed(2);
+            const time = row.time_ms.toFixed(2);
+            csvContent += [name, accuracy, time].join(",") + "\n";
+        });
+
+        // 3. Create a blob and trigger download
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement("a");
+        const url = URL.createObjectURL(blob);
+        
+        link.setAttribute("href", url);
+        link.setAttribute("download", "benchmark_results.csv");
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+
+    // Add the listener for the new button
+    downloadCSVButton.addEventListener('click', () => {
+        generateCSV(benchmarkData);
+    });
 });

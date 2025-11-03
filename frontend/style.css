@@ -257,6 +257,37 @@ body, html {
     outline-offset: 2px;
 }
 
+/* --- NEW: CSV Button Style --- */
+.stats-button-csv {
+    width: 100%;
+    background-color: #216eda; /* Gray-600 */
+    color: #ffffff; /* text-white */
+    font-weight: 700; /* font-bold */
+    padding: 0.75rem 1rem; /* py-3 px-4 */
+    border: none;
+    border-radius: 0.5rem; /* rounded-lg */
+    cursor: pointer;
+    font-size: 1rem;
+    transition: all 0.3s ease-in-out;
+}
+
+.stats-button-csv:hover:not(:disabled) {
+    background-color: #2059b5; /* Gray-700 */
+    transform: scale(1.02);
+}
+
+.stats-button-csv:focus {
+    outline: 2px solid #9ca3af; /* Gray-400 */
+    outline-offset: 2px;
+}
+
+/* Make sure your submit-button:disabled style is present */
+.submit-button:disabled,
+.stats-button-csv:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
 /* --- Utilities (from Tailwind) --- */
 .hidden {
     display: none;

@@ -213,7 +213,6 @@ def preview_image():
     file = request.files['image']
     
     try:
-        # Read the .pgm file data
         image_data = file.read()
         nparr = np.frombuffer(image_data, np.uint8)
         image_array_uint8 = cv2.imdecode(nparr, cv2.IMREAD_GRAYSCALE)
@@ -221,18 +220,16 @@ def preview_image():
         if image_array_uint8 is None:
             return jsonify({"error": "Failed to decode PGM image"}), 400
 
-        # --- This is just for preview, so we send it back as PNG ---
-        
-        # Resize it so the preview looks right
+        # resize it so the preview looks right
         image_resized = cv2.resize(image_array_uint8, (TARGET_SHAPE_2D[1], TARGET_SHAPE_2D[0]))
 
-        # Encode the resized 2D array as a PNG in memory
+        # encode the resized 2D array as a PNG in memory
         is_success, buffer = cv2.imencode(".png", image_resized)
         
-        # Convert that in-memory PNG to a Base64 text string
+        # convert that in-memory PNG to a Base64 text string
         b64_string = base64.b64encode(buffer).decode("utf-8")
 
-        # Send the PNG string back to the frontend
+        # send the PNG string back to the frontend
         return jsonify({"image_b64": b64_string})
 
     except Exception as e:
@@ -247,50 +244,40 @@ def run_statistics():
     """
     print("--- Starting Statistics Benchmark ---")
     
-    # Define all combinations to test
-    # (NN is just K-NN with k=1, but we'll test both 'nn' and 'knn' logic)
     algorithms = ["nn", "knn"]
-    k_values = [1, 3, 5, 7]
+    k_values = [1, 3, 5, 7, 9]
     norm_types = ["cos", "2", "1", "inf"]
     
     benchmark_results = []
     
-    # Loop over every combination
     for algo in algorithms:
         for norm in norm_types:
-            # For NN, we only run k=1
             if algo == 'nn':
                 test_k_values = [1]
-            else: # For K-NN, we run all k_values
+            else:
                 test_k_values = k_values
                 
             for k in test_k_values:
-                # Skip redundant NN(k=1) test if K-NN(k=1) is already done
                 if algo == 'nn' and k == 1 and any(r['name'] == f'K-NN (k=1) - {norm}' for r in benchmark_results):
                     continue
 
                 total_correct = 0
-                
-                # --- Measure Time ---
+        
                 start_time = time.perf_counter()
                 
-                # Run this combo against all 80 test images
                 for i, test_img in enumerate(test_images):
                     true_label = (i // 2) + 1
                     
-                    # We call the *logic* function directly
                     results = get_recognition_results(test_img, algo, k, norm)
                     
                     if results["person_label"] == true_label:
                         total_correct += 1
                         
                 end_time = time.perf_counter()
-                # --- End Time ---
                 
-                total_time_ms = (end_time - start_time) * 1000 # Convert to milliseconds
+                total_time_ms = (end_time - start_time) * 1000
                 accuracy = (total_correct / len(test_images)) * 100
                 
-                # Create a readable name
                 if algo == 'nn':
                     name = f"NN - {norm}"
                 else:

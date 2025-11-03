@@ -80,7 +80,7 @@
 
                 <div class="stats-button-group">
                     <button id="run-stats-button" class="submit-button stats-button">Show/Run Statistics</button>
-                    <button id="clear-stats-button" class="submit-button stats-button-clear">Clear Cache & Re-run</button>
+                    <button id="clear-stats-button" class="submit-button stats-button-clear">Clear Cache</button>
                 </div>
                 
                 <div id="stats-loader" class="hidden">
@@ -102,7 +102,13 @@
                         <canvas id="time-chart"></canvas>
                     </div>
 
-                    <button id="download-charts-button" class="submit-button stats-button">Download Charts</button>
+                    <!-- --- THIS IS THE UPDATED BLOCK --- -->
+                    <div class="stats-button-group" style="margin-top: 1rem;">
+                        <button id="download-charts-button" class="submit-button stats-button">Download Charts</button>
+                        
+                        <!-- ADD THIS NEW BUTTON -->
+                        <button id="download-csv-button" class="submit-button stats-button-csv" disabled>Download CSV</button>
+                    </div>
                 </div>
             </div>
         </div>
