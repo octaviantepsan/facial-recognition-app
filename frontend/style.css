@@ -98,6 +98,59 @@ body, html {
     outline-offset: 2px;
 }
 
+/* --- NEW: Algorithm Settings --- */
+.settings-grid {
+    display: grid;
+    /* Create responsive columns: 3 on desktop, 1 on mobile */
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 1rem;
+}
+
+.form-label-sm {
+    display: block;
+    font-size: 0.75rem; /* 12px */
+    font-weight: 500;
+    color: #d1d5db; /* gray-300 */
+    margin-bottom: 0.25rem; /* 4px */
+}
+
+.select-input {
+    width: 100%;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.875rem; /* text-sm */
+    color: #d1d5db; /* gray-300 */
+    background-color: #374151; /* gray-700 */
+    border: 1px solid #4b5563; /* gray-600 */
+    border-radius: 0.375rem; /* rounded-md */
+    cursor: pointer;
+    
+    /* Remove default OS styling */
+    appearance: none;
+    -webkit-appearance: none;
+    
+    /* Custom dropdown arrow */
+    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 20 20"><path stroke="%239ca3af" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M6 8l4 4 4-4"/></svg>');
+    background-repeat: no-repeat;
+    background-position: right 0.5rem center;
+    background-size: 1.25em 1.25em;
+    
+    /* Add padding to right to not overlap arrow */
+    padding-right: 2.5rem;
+}
+
+.select-input:focus {
+    outline: 2px solid #6366f1; /* focus:ring-2 focus:ring-indigo-500 */
+    outline-offset: 2px;
+    border-color: #4f46e5; /* indigo-600 */
+}
+
+.select-input:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    background-color: #4b5563; /* gray-600 */
+}
+
+
 /* --- Results Section --- */
 .results-section {
     margin-top: 2rem; /* mt-8 */

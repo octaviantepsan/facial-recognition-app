@@ -1,23 +1,41 @@
-// Wait for the DOM to be fully loaded before running the script
 document.addEventListener("DOMContentLoaded", () => {
     const uploadForm = document.getElementById('upload-form');
     const imageInput = document.getElementById('image-file');
+    const imagePreview = document.getElementById('image-preview');
+    
+    // Dropdowns
+    const algorithmSelect = document.getElementById('algorithm-select');
+    const kSelect = document.getElementById('k-select');
+    const normSelect = document.getElementById('norm-select');
+    
+    // Buttons and Results
     const processButton = document.getElementById('processButton');
     const loader = document.getElementById('loader');
     const resultsSection = document.getElementById('results-section');
     const resultsOutput = document.getElementById('results-output');
-    const imagePreview = document.getElementById('image-preview');
+    const resultImage = document.getElementById('result-image');
 
-    imageInput.value = null; // Clears the file input field
-    
+    imageInput.value = null;
     imagePreview.style.display = 'none';
     imagePreview.src = '';
+    resultImage.style.display = 'none';
+    resultImage.src = '';
     
+    kSelect.disabled = true;
+    
+    algorithmSelect.addEventListener('change', () => {
+        if (algorithmSelect.value === 'nn') {
+            kSelect.value = "1"
+            kSelect.disabled = true;
+        } else {
+            kSelect.disabled = false;
+        }
+    });
+
     uploadForm.addEventListener('submit', async (event) => {
         event.preventDefault(); 
 
         const file = imageInput.files[0];
-
         if (!file) {
             resultsOutput.textContent = "Please select an image file first.";
             resultsSection.style.display = 'block';
@@ -28,6 +46,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
         const formData = new FormData();
         formData.append('image', file);
+        formData.append('algorithm', algorithmSelect.value);
+        formData.append('k', kSelect.value);
+        formData.append('normType', normSelect.value);
 
         const backendUrl = 'http://localhost:5000/process_image';
 
@@ -37,21 +58,24 @@ document.addEventListener("DOMContentLoaded", () => {
                 body: formData,
             });
 
-            const data = await response.json(); // data = { "matched_img_index": 123, "image_b64": "..." }
+            const data = await response.json();
 
             if (response.ok) {
-                const resultImage = document.getElementById('result-image');
-                const imageSrc = "data:image/png;base64," + data.image_b64;
-                resultImage.src = imageSrc;
+                resultImage.src = "data:image/png;base64," + data.image_b64;
                 resultImage.style.display = 'block';
 
-                const index = data.matched_img_index;
-                const outputText = `Nearest index in training set: ${index}`
+                const algo = data.algorithm;
+                const person = data.person_label;
+                const index = data.nearest_idx;
+
+                const outputText = `Algorithm Used: ${algo}
+Voted Person: ${person}
+Nearest Image Index: ${index}`;
 
                 resultsOutput.textContent = outputText;
             
             } else {
-                document.getElementById('result-image').style.display = 'none';
+                resultImage.style.display = 'none';
                 throw new Error(data.error || 'Unknown server error');
             }
 
@@ -66,8 +90,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     imageInput.addEventListener('change', async () => {
         const file = imageInput.files[0];
-        const imagePreview = document.getElementById('image-preview');
-
+        
         if (file) {
             const formData = new FormData();
             formData.append('image', file);
@@ -77,7 +100,6 @@ document.addEventListener("DOMContentLoaded", () => {
                     method: 'POST',
                     body: formData,
                 });
-                
                 const data = await response.json();
                 
                 if (response.ok) {
@@ -87,13 +109,11 @@ document.addEventListener("DOMContentLoaded", () => {
                 } else {
                     throw new Error(data.error);
                 }
-
             } catch (error) {
                 console.error("Preview failed:", error);
                 imagePreview.src = '';
                 imagePreview.style.display = 'none';
             }
-
         } else {
             imagePreview.src = '';
             imagePreview.style.display = 'none';
@@ -104,14 +124,12 @@ document.addEventListener("DOMContentLoaded", () => {
         if (isLoading) {
             processButton.disabled = true;
             processButton.textContent = 'Processing...';
-            
             loader.classList.remove('hidden');
             resultsSection.classList.add('hidden'); 
             resultsOutput.textContent = '';
         } else {
             processButton.disabled = false;
             processButton.textContent = 'Process Image';
-            
             loader.classList.add('hidden');
         }
     }
