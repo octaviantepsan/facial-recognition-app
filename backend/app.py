@@ -158,6 +158,15 @@ def get_recognition_results(image_array_float, algorithm, k, normType):
         img_as_string = prepareImgToSend(first_index_of_winner)
         algo_name = f"K-NN (k={k})"
 
+        # make K-NN for k=1 work same as NN
+        if k == 1:
+            img_as_string = prepareImgToSend(nearest_idx)
+            algo_name = f"K-NN (k=1)"
+        else:
+            first_index_of_winner = (person_label - 1) * 8
+            img_as_string = prepareImgToSend(first_index_of_winner)
+            algo_name = f"K-NN (k={k})"
+
         return {
             "algorithm": algo_name,
             "person_label": person_label,
