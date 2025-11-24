@@ -1,33 +1,68 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Python Face Reco GUI</title>
-    
+    <title>Python Image Classifier GUI</title>
     <link rel="stylesheet" href="style.css">
-    
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
+
 <body class="page-body">
 
     <div class="main-container">
 
         <div class="card main-card">
-            <h1 class="card-title">Algorithm Processor</h1>
+            <h1 class="card-title">Image Processor</h1>
 
             <form id="upload-form" class="upload-form">
-                
+
+                <!-- DATA CONFIGURATION -->
+                <div class="settings-grid"
+                    style="border-bottom: 1px solid #374151; padding-bottom: 1.5rem; margin-bottom: 1.5rem;">
+                    <div>
+                        <label for="dataset-select" class="form-label-sm">Select Dataset:</label>
+                        <select id="dataset-select" class="select-input">
+                            <option value="attfaces">AT&T Faces</option>
+                            <option value="digits">Digits</option>
+                            <option value="CTOVF">CTOVF</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="split-select" class="form-label-sm">Train/Test Split:</label>
+                        <select id="split-select" class="select-input">
+                            <option value="0.8">80% Train / 20% Test</option>
+                            <option value="0.7">70% Train / 30% Test</option>
+                            <option value="0.6">60% Train / 40% Test</option>
+                            <option value="0.5">50% Train / 50% Test</option>
+                        </select>
+                    </div>
+                    <div></div>
+                </div>
+
+                <!-- FILE INPUT -->
                 <div>
-                    <label for="image-file" class="form-label">Select Image:</label>
+                    <label for="image-file" class="form-label">Select Test Image:</label>
                     <input type="file" id="image-file" class="file-input" accept="image/*, .pgm" />
                 </div>
 
-                <img id="image-preview" 
-                     alt="Image preview" 
-                     style="display: none; width: 100%; max-width: 200px; margin: 1rem auto; border-radius: 0.375rem;">
+                <img id="image-preview" alt="Image preview"
+                    style="display: none; width: 100%; max-width: 200px; margin: 1rem auto; border-radius: 0.375rem;">
 
+                <!-- ALGORITHM SETTINGS -->
                 <div class="settings-grid">
+
+                    <!-- NEW DROPDOWN: Feature Extraction -->
+                    <div>
+                        <label for="feature-select" class="form-label-sm">Feature Extraction:</label>
+                        <select id="feature-select" class="select-input">
+                            <option value="raw">None (Raw Pixels)</option>
+                            <option value="eigen">Eigenfaces (Standard)</option>
+                            <option value="eigen_mean">Eigenfaces (Class Reps)</option>
+                        </select>
+                    </div>
+
                     <div>
                         <label for="algorithm-select" class="form-label-sm">Algorithm:</label>
                         <select id="algorithm-select" class="select-input">
@@ -42,6 +77,7 @@
                             <option value="3">3</option>
                             <option value="5">5</option>
                             <option value="7">7</option>
+                            <option value="9">9</option>
                         </select>
                     </div>
                     <div>
@@ -62,59 +98,71 @@
 
             <div id="results-section" class="results-section hidden">
                 <h2 class="results-title">Processing Results:</h2>
-                <img id="result-image" 
-                     alt="Matching face result" 
-                     style="display: none; width: 100%; max-width: 200px; margin: 1rem auto; border-radius: 0.375rem;">
+
+                <!-- NEW WRAPPER FOR SIDE-BY-SIDE IMAGES -->
+                <div class="results-wrapper">
+
+                    <div class="result-item">
+                        <p class="form-label-sm">Match</p>
+                        <img id="result-image" class="result-img" alt="Matching result" style="display: none;">
+                    </div>
+
+                    <div id="ghost-container" class="result-item" style="display: none;">
+                        <p class="form-label-sm">Eigenfaces Ghost</p>
+                        <img id="ghost-image" class="result-img" alt="Eigen Reconstruction" style="opacity: 0.9;">
+                    </div>
+                </div>
+
                 <div id="loader" class="hidden">
                     <div class="spinner"></div>
                 </div>
+
                 <pre id="results-output" class="results-output">Awaiting processing...</pre>
             </div>
+
         </div>
 
-
+        <!-- Card 2: Statistics Panel (Unchanged) -->
         <div class="card stats-card">
             <h1 class="card-title">Benchmark Panel</h1>
-            
             <div class="statistics-container">
-
                 <div class="stats-button-group">
                     <button id="run-stats-button" class="submit-button stats-button">Show/Run Statistics</button>
-                    <button id="clear-stats-button" class="submit-button stats-button-clear">Clear Cache</button>
+                    <button id="clear-stats-button" class="submit-button stats-button-clear">Clear Cache &
+                        Re-run</button>
                 </div>
-                
                 <div id="stats-loader" class="hidden">
                     <div class="spinner"></div>
                     <p style="text-align: center; color: #9ca3af;">Running benchmarks... this may take a minute.</p>
                 </div>
-
                 <div id="statistics-section" class="hidden">
                     <h2 class="results-title">Benchmark Results</h2>
-                    <p id="cache-message" style="text-align: center; font-size: 0.875rem; color: #9ca3af; margin-top: -1rem; margin-bottom: 1rem;"></p>
-
+                    <p id="cache-message"
+                        style="text-align: center; font-size: 0.875rem; color: #9ca3af; margin-top: -1rem; margin-bottom: 1rem;">
+                    </p>
                     <div class="chart-container">
                         <h3 class="chart-title">Accuracy (%)</h3>
                         <canvas id="accuracy-chart"></canvas>
                     </div>
-
                     <div class="chart-container">
-                        <h3 class="chart-title">Processing Time (ms)</h3>
+                        <h3 class="chart-title">Median Processing Time (ms)</h3>
                         <canvas id="time-chart"></canvas>
                     </div>
-
-                    <!-- --- THIS IS THE UPDATED BLOCK --- -->
                     <div class="stats-button-group" style="margin-top: 1rem;">
                         <button id="download-charts-button" class="submit-button stats-button">Download Charts</button>
-                        
-                        <!-- ADD THIS NEW BUTTON -->
-                        <button id="download-csv-button" class="submit-button stats-button-csv" disabled>Download CSV</button>
+                        <button id="download-csv-button" class="submit-button stats-button-csv" disabled>Download
+                            CSV</button>
                     </div>
                 </div>
             </div>
         </div>
-
     </div>
-
+    <!-- Notification Toast -->
+    <div id="toast" class="hidden"
+        style="position: fixed; bottom: 20px; right: 20px; background: #059669; color: white; padding: 1rem; border-radius: 0.5rem; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+        Dataset loaded successfully!
+    </div>
     <script src="app.js" defer></script>
 </body>
+
 </html>
