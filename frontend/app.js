@@ -30,20 +30,17 @@ document.addEventListener("DOMContentLoaded", () => {
     let timeChart = null;
     let benchmarkData = null;
 
-    // Init
     imageInput.value = null;
     imagePreview.style.display = 'none';
     imagePreview.src = '';
     resultImage.style.display = 'none';
     resultImage.src = '';
     
-    // --- UI LOGIC ---
     function updateUI() {
         const feat = featureSelect.value;
         const algo = algorithmSelect.value;
 
         if (feat === 'eigen_mean') {
-            // Class Reps forces NN
             algorithmSelect.value = 'nn';
             algorithmSelect.disabled = true;
             kSelect.disabled = true;
@@ -61,7 +58,7 @@ document.addEventListener("DOMContentLoaded", () => {
     algorithmSelect.addEventListener('change', updateUI);
     featureSelect.addEventListener('change', updateUI);
 
-    // --- Reload Dataset ---
+    // Reload Dataset
     async function reloadDataset() {
         const dataset = datasetSelect.value;
         const split = parseFloat(splitSelect.value);
@@ -87,7 +84,7 @@ document.addEventListener("DOMContentLoaded", () => {
     datasetSelect.addEventListener('change', reloadDataset);
     splitSelect.addEventListener('change', reloadDataset);
 
-    // --- Submit Form ---
+    // Submit Form
     uploadForm.addEventListener('submit', async (event) => {
         event.preventDefault(); 
         const file = imageInput.files[0];
@@ -113,7 +110,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 resultImage.src = "data:image/png;base64," + data.image_b64;
                 resultImage.style.display = 'block';
 
-                // --- GHOST LOGIC ---
+                // GHOST LOGIC
                 const ghostContainer = document.getElementById('ghost-container');
                 const ghostImage = document.getElementById('ghost-image');
                 if (data.ghost_b64) {
@@ -170,7 +167,7 @@ Nearest Image Index: ${data.nearest_idx}`;
         }
     }
 
-    // --- Statistics ---
+    // Statistics
     runStatsButton.addEventListener('click', async () => { 
         const cachedData = localStorage.getItem('benchmarkData');
         if (cachedData) {
