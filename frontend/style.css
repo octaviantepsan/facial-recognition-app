@@ -46,7 +46,7 @@ body, html {
 
 .stats-card {
     width: 100%;
-    max-width: 48rem; /* max-w-3xl (wider for charts) */
+    max-width: 64rem; /* max-w-3xl (wider for charts) */
     flex-grow: 1; /* Allow to grow */
 }
 

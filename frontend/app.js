@@ -1,9 +1,12 @@
 document.addEventListener("DOMContentLoaded", () => {
     
+    // --- 1. Get Elements ---
     const uploadForm = document.getElementById('upload-form');
     const imageInput = document.getElementById('image-file');
     const imagePreview = document.getElementById('image-preview');
     const featureSelect = document.getElementById('feature-select');
+    const pcaKContainer = document.getElementById('pca-k-container'); 
+    const pcaSelect = document.getElementById('pca-select'); 
     const algorithmSelect = document.getElementById('algorithm-select');
     const kSelect = document.getElementById('k-select');
     const normSelect = document.getElementById('norm-select');
@@ -20,27 +23,39 @@ document.addEventListener("DOMContentLoaded", () => {
     const statsLoader = document.getElementById('stats-loader');
     const statsSection = document.getElementById('statistics-section');
     const downloadChartsButton = document.getElementById('download-charts-button');
+    
     const accuracyChartCanvas = document.getElementById('accuracy-chart');
     const timeChartCanvas = document.getElementById('time-chart');
+    const prepChartCanvas = document.getElementById('prep-chart');
+
     const downloadCSVButton = document.getElementById('download-csv-button');
     const clearStatsButton = document.getElementById('clear-stats-button');
     const cacheMessage = document.getElementById('cache-message');
 
     let accuracyChart = null;
     let timeChart = null;
+    let prepChart = null;
     let benchmarkData = null;
 
+    // --- 2. Initialization ---
     imageInput.value = null;
     imagePreview.style.display = 'none';
     imagePreview.src = '';
     resultImage.style.display = 'none';
     resultImage.src = '';
     
+    // --- 3. UI Logic ---
     function updateUI() {
         const feat = featureSelect.value;
         const algo = algorithmSelect.value;
 
-        if (feat === 'eigen_mean') {
+        if (feat === 'raw') {
+            if(pcaKContainer) pcaKContainer.style.display = 'none';
+        } else {
+            if(pcaKContainer) pcaKContainer.style.display = 'block';
+        }
+
+        if (feat.includes('mean')) {
             algorithmSelect.value = 'nn';
             algorithmSelect.disabled = true;
             kSelect.disabled = true;
@@ -54,11 +69,11 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     }
 
-    kSelect.disabled = true;
     algorithmSelect.addEventListener('change', updateUI);
     featureSelect.addEventListener('change', updateUI);
+    updateUI(); 
 
-    // Reload Dataset
+    // --- 4. Dataset Reloading ---
     async function reloadDataset() {
         const dataset = datasetSelect.value;
         const split = parseFloat(splitSelect.value);
@@ -84,7 +99,7 @@ document.addEventListener("DOMContentLoaded", () => {
     datasetSelect.addEventListener('change', reloadDataset);
     splitSelect.addEventListener('change', reloadDataset);
 
-    // Submit Form
+    // --- 5. Main Process Submission ---
     uploadForm.addEventListener('submit', async (event) => {
         event.preventDefault(); 
         const file = imageInput.files[0];
@@ -98,6 +113,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const formData = new FormData();
         formData.append('image', file);
         formData.append('feature_mode', featureSelect.value);
+        if(pcaSelect) formData.append('n_components', pcaSelect.value);
         formData.append('algorithm', algorithmSelect.value);
         formData.append('k', kSelect.value);
         formData.append('normType', normSelect.value);
@@ -106,16 +122,16 @@ document.addEventListener("DOMContentLoaded", () => {
         try {
             const response = await fetch(backendUrl, { method: 'POST', body: formData });
             const data = await response.json();
+            
             if (response.ok) {
                 resultImage.src = "data:image/png;base64," + data.image_b64;
                 resultImage.style.display = 'block';
 
-                // GHOST LOGIC
                 const ghostContainer = document.getElementById('ghost-container');
                 const ghostImage = document.getElementById('ghost-image');
                 if (data.ghost_b64) {
                     ghostImage.src = "data:image/png;base64," + data.ghost_b64;
-                    ghostContainer.style.display = 'block';
+                    ghostContainer.style.display = 'flex';
                 } else {
                     ghostContainer.style.display = 'none';
                 }
@@ -167,8 +183,10 @@ Nearest Image Index: ${data.nearest_idx}`;
         }
     }
 
-    // Statistics
+    // --- 7. Statistics Logic ---
     runStatsButton.addEventListener('click', async () => { 
+        resultsSection.classList.add('hidden');
+        
         const cachedData = localStorage.getItem('benchmarkData');
         if (cachedData) {
             cacheMessage.textContent = "Displaying cached results. Click 'Clear Cache' to re-run.";
@@ -176,6 +194,7 @@ Nearest Image Index: ${data.nearest_idx}`;
             displayBenchmarkData(benchmarkData);
             return; 
         }
+
         cacheMessage.textContent = ""; 
         statsLoader.classList.remove('hidden');
         statsSection.classList.add('hidden');
@@ -185,6 +204,7 @@ Nearest Image Index: ${data.nearest_idx}`;
         try {
             const response = await fetch('http://localhost:5000/run_statistics', { method: 'POST' });
             const data = await response.json(); 
+            
             if (response.ok) {
                 benchmarkData = data;
                 localStorage.setItem('benchmarkData', JSON.stringify(data));
@@ -201,12 +221,27 @@ Nearest Image Index: ${data.nearest_idx}`;
         }
     });
 
-    function median(arr) {
-        if (!arr.length) return 0;
-        const sorted = arr.slice().sort((a, b) => a - b);
-        const mid = Math.floor(sorted.length / 2);
-        if (sorted.length % 2 === 0) return (sorted[mid - 1] + sorted[mid]) / 2;
-        return sorted[mid];
+    function displayBenchmarkData(data) {
+        if (accuracyChart) accuracyChart.destroy();
+        if (timeChart) timeChart.destroy();
+        if (prepChart) prepChart.destroy();
+        
+        // --- THIS IS THE FIX ---
+        // Merge classification (Raw) and preprocessing (Eigen) data for Accuracy
+        const combinedAccuracyData = [...data.classification, ...data.preprocessing];
+        
+        accuracyChart = renderChart(accuracyChartCanvas, combinedAccuracyData, 'accuracy', 'Accuracy (%)', 'rgba(75, 192, 192, 0.6)', true);
+        
+        // Time Chart (Raw only)
+        const medianTimeData = calculateMedianTimeData(data.classification);
+        timeChart = renderChart(timeChartCanvas, medianTimeData, 'time_ms', 'Median Time (ms)', 'rgba(255, 99, 132, 0.6)', false);
+        
+        // Prep Chart (Eigen only)
+        prepChart = renderChart(prepChartCanvas, data.preprocessing, 'time_ms', 'Time (ms)', 'rgba(54, 162, 235, 0.6)', false);
+        
+        statsSection.classList.remove('hidden');
+        downloadChartsButton.disabled = false;
+        downloadCSVButton.disabled = false;
     }
 
     function calculateMedianTimeData(data) {
@@ -216,14 +251,12 @@ Nearest Image Index: ${data.nearest_idx}`;
             '1': { times: [], name: 'Manhattan (L1)' },
             'inf': { times: [], name: 'Chebyshev (L-inf)' }
         };
-
         for (const item of data) {
             if (item.name.endsWith('cos')) normTimes['cos'].times.push(item.time_ms);
             else if (item.name.endsWith('2')) normTimes['2'].times.push(item.time_ms);
             else if (item.name.endsWith('1')) normTimes['1'].times.push(item.time_ms);
             else if (item.name.endsWith('inf')) normTimes['inf'].times.push(item.time_ms);
         }
-
         const medianData = [];
         for (const key in normTimes) {
             medianData.push({
@@ -234,21 +267,41 @@ Nearest Image Index: ${data.nearest_idx}`;
         return medianData;
     }
 
-    function displayBenchmarkData(data) {
-        if (accuracyChart) accuracyChart.destroy();
-        if (timeChart) timeChart.destroy();
-        accuracyChart = renderChart(accuracyChartCanvas, data, 'accuracy', 'Accuracy (%)', 'rgba(75, 192, 192, 0.6)');
-        const medianTimeData = calculateMedianTimeData(data);
-        timeChart = renderChart(timeChartCanvas, medianTimeData, 'time_ms', 'Median Time (ms)', 'rgba(255, 99, 132, 0.6)');
-        statsSection.classList.remove('hidden');
-        downloadChartsButton.disabled = false;
-        downloadCSVButton.disabled = false;
+    function median(arr) {
+        if (!arr.length) return 0;
+        const sorted = arr.slice().sort((a, b) => a - b);
+        const mid = Math.floor(sorted.length / 2);
+        if (sorted.length % 2 === 0) return (sorted[mid - 1] + sorted[mid]) / 2;
+        return sorted[mid];
     }
 
-    function renderChart(canvas, data, dataKey, label, color) {
-        let processedLabels = data.map(d => d.name);
-        let processedValues = data.map(d => d[dataKey]);
-        
+    function renderChart(canvas, data, dataKey, label, color, useSpacing) {
+        let processedLabels = [];
+        let processedValues = [];
+
+        if (useSpacing) {
+            const GroupSize = 4;
+            let currentGroupSize = GroupSize;
+            let itemsInCurrentGroup = 0;
+
+            for (let i = 0; i < data.length; i++) {
+                const item = data[i];
+                processedLabels.push(item.name);
+                processedValues.push(item[dataKey]);
+                itemsInCurrentGroup++;
+
+                const isLastItem = (i === data.length - 1);
+                if (!isLastItem && itemsInCurrentGroup === currentGroupSize) {
+                    processedLabels.push('');
+                    processedValues.push(NaN);
+                    itemsInCurrentGroup = 0;
+                }
+            }
+        } else {
+            processedLabels = data.map(d => d.name);
+            processedValues = data.map(d => d[dataKey]);
+        }
+
         return new Chart(canvas, {
             type: 'bar',
             data: {
@@ -282,6 +335,7 @@ Nearest Image Index: ${data.nearest_idx}`;
     downloadChartsButton.addEventListener('click', () => {
         downloadChart(accuracyChart, 'accuracy_chart.png');
         downloadChart(timeChart, 'time_chart.png');
+        downloadChart(prepChart, 'preprocessing_chart.png');
     });
 
     clearStatsButton.addEventListener('click', () => {
@@ -289,23 +343,30 @@ Nearest Image Index: ${data.nearest_idx}`;
         benchmarkData = null;
         statsSection.classList.add('hidden');
         cacheMessage.textContent = "";
+        
         if (accuracyChart) accuracyChart.destroy();
         if (timeChart) timeChart.destroy();
+        if (prepChart) prepChart.destroy();
+        
         downloadCSVButton.disabled = true;
         resultsOutput.textContent = "Benchmark cache cleared. Click 'Show/Run Statistics' to re-calculate.";
         resultsSection.classList.remove('hidden');
     });
 
     function generateCSV(data) {
-        if (!data || data.length === 0) return;
+        if (!data) return;
         const headers = ["TestName", "Accuracy(%)", "Time(ms)"];
         let csvContent = headers.join(",") + "\n";
-        data.forEach(row => {
+        
+        const allRows = [...data.classification, ...data.preprocessing];
+        
+        allRows.forEach(row => {
             const name = `"${row.name}"`;
             const accuracy = row.accuracy.toFixed(2);
             const time = row.time_ms.toFixed(2);
             csvContent += [name, accuracy, time].join(",") + "\n";
         });
+        
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
         const link = document.createElement("a");
         const url = URL.createObjectURL(blob);

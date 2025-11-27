@@ -48,15 +48,26 @@
 
                 <div class="settings-grid">
                     
-                    <!-- NEW: Feature Extraction -->
                     <div>
                         <label for="feature-select" class="form-label-sm">Feature Extraction:</label>
                         <select id="feature-select" class="select-input">
                             <option value="raw">None (Raw Pixels)</option>
-                            <option value="eigen">Eigenfaces (Standard)</option>
-                            <option value="eigen_mean">Eigenfaces (Class Reps)</option>
-                            <!-- ADDED LANCZOS -->
-                            <option value="lanczos">Lanczos (PCA-Arpack)</option>
+                            <option value="eigen_snapshot">Eigenfaces (Snapshot)</option>
+                            <option value="eigen_svd">Eigenfaces (SVD)</option>
+                            <option value="eigen_mean_snapshot">Class Reps (Snapshot)</option>
+                            <option value="eigen_mean_svd">Class Reps (SVD)</option>
+                            <option value="lanczos">Lanczos (Iterative)</option>
+                        </select>
+                    </div>
+
+                    <div id="pca-k-container">
+                        <label for="pca-select" class="form-label-sm">PCA Components:</label>
+                        <select id="pca-select" class="select-input">
+                            <option value="30">30</option>
+                            <option value="50" selected>50</option>
+                            <option value="80">80</option>
+                            <option value="100">100</option>
+                            <option value="max">Max Possible</option>
                         </select>
                     </div>
 
@@ -74,7 +85,6 @@
                             <option value="3">3</option>
                             <option value="5">5</option>
                             <option value="7">7</option>
-                            <option value="9">9</option>
                         </select>
                     </div>
                     <div>
@@ -121,7 +131,6 @@
             </div>
         </div>
 
-        <!-- Stats Panel -->
         <div class="card stats-card">
             <h1 class="card-title">Benchmark Panel</h1>
             <div class="statistics-container">
@@ -136,14 +145,23 @@
                 <div id="statistics-section" class="hidden">
                     <h2 class="results-title">Benchmark Results</h2>
                     <p id="cache-message" style="text-align: center; font-size: 0.875rem; color: #9ca3af; margin-top: -1rem; margin-bottom: 1rem;"></p>
+                    
                     <div class="chart-container">
-                        <h3 class="chart-title">Accuracy (%)</h3>
+                        <h3 class="chart-title">Raw Algorithm Accuracy (%)</h3>
                         <canvas id="accuracy-chart"></canvas>
                     </div>
+
                     <div class="chart-container">
-                        <h3 class="chart-title">Median Processing Time (ms)</h3>
+                        <h3 class="chart-title">Raw Classification Time (ms)</h3>
                         <canvas id="time-chart"></canvas>
                     </div>
+
+                    <!-- NEW: PREP CHART -->
+                    <div class="chart-container">
+                        <h3 class="chart-title">Preprocessing Time vs PCA Components (ms)</h3>
+                        <canvas id="prep-chart"></canvas>
+                    </div>
+
                     <div class="stats-button-group" style="margin-top: 1rem;">
                         <button id="download-charts-button" class="submit-button stats-button">Download Charts</button>
                         <button id="download-csv-button" class="submit-button stats-button-csv" disabled>Download CSV</button>
